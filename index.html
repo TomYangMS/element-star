@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>元素星空 2.0 - 治愈系化学寻星</title>
+    <style>
+        :root {
+            --bg-top: #0f172a;
+            --bg-bottom: #1e293b;
+            --text-main: #f8fafc;
+            --primary: #38bdf8;
+            --secondary: #818cf8;
+            --accent: #f472b6;
+            --success: #34d399;
+            --error: #fb7185;
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.2);
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+        }
+
+        /* 动态星空画布 */
+        #starfield {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* 界面切换容器 */
+        .screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 1000px;
+            padding: 20px;
+            animation: fadeIn 0.8s ease;
+            z-index: 10;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        /* 标题与按钮 */
+        h1 {
+            font-size: 3rem;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(56, 189, 248, 0.5);
+            margin-bottom: 10px;
+            letter-spacing: 2px;
+        }
+
+        p.subtitle {
+            font-size: 1.2rem;
+            color: #cbd5e1;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        /* 新增：输入框样式 */
+        .input-field {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--primary);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 20px;
+            font-size: 1.1rem;
+            text-align: center;
+            margin-bottom: 20px;
+            outline: none;
+            width: 250px;
+            transition: box-shadow 0.3s ease;
+        }
+        .input-field::placeholder { color: #cbd5e1; }
+        .input-field:focus {
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.5);
+        }
+
+        .btn {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(10px);
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            border-radius: 30px;
+            margin: 10px;
+            cursor: pointer;
+            color: #fff;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 20px var(--primary);
+            border-color: var(--primary);
+        }
+
+        .btn-back { font-size: 1rem; padding: 8px 25px; margin: 0; }
+
+        /* 游戏状态栏 */
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 850px;
+            margin-bottom: 20px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            padding: 15px 30px;
+            border-radius: 20px;
+            border: 1px solid var(--glass-border);
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        /* 当前提示元素 */
+        .prompt-box {
+            text-align: center;
+            margin-bottom: 30px;
+            height: 120px;
+        }
+
+        .prompt-box h2 {
+            margin: 0;
+            font-size: 1.2rem;
+            color: #94a3b8;
+            font-weight: normal;
+        }
+
+        .element-badge {
+            display: inline-block;
+            background: transparent;
+            border: 2px solid var(--primary);
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.3) inset;
+            padding: 10px 40px;
+            border-radius: 15px;
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #fff;
+            margin-top: 15px;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        /* 周期表网格 */
+        .table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            padding-bottom: 20px;
+        }
+
+        .periodic-table {
+            display: grid;
+            grid-template-columns: repeat(18, minmax(45px, 1fr));
+            gap: 8px;
+            min-width: 850px;
+            margin: 0 auto;
+        }
+
+        .cell {
+            aspect-ratio: 1;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            font-weight: bold;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+        }
+
+        .cell.empty-slot {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px dashed rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+        }
+
+        .cell.empty-slot:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: scale(1.1);
+            border-color: var(--primary);
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        .cell.filled {
+            color: #fff;
+            border: none;
+            box-shadow: 0 0 15px rgba(255,255,255,0.2);
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        .cell.filled small {
+            font-size: 0.75rem;
+            font-weight: normal;
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+
+        .cell.hidden { visibility: hidden; }
+
+        /* 吐司提示（元素故事） */
+        #toast {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--secondary);
+            color: #fff;
+            padding: 12px 25px;
+            border-radius: 30px;
+            font-size: 1rem;
+            opacity: 0;
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+            z-index: 100;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            white-space: nowrap;
+        }
+
+        #toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        /* 排行榜列表样式 */
+        #leaderboard-content ol {
+            padding-left: 20px;
+        }
+        #leaderboard-content li {
+            margin-bottom: 10px;
+            background: rgba(255,255,255,0.05);
+            padding: 10px 20px;
+            border-radius: 10px;
+            border-left: 4px solid var(--primary);
+        }
+
+        /* 动画 */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes float { 0%, 100% { transform: translateY(0); box-shadow: 0 0 15px rgba(56, 189, 248, 0.3) inset; } 50% { transform: translateY(-8px); box-shadow: 0 0 25px rgba(56, 189, 248, 0.6) inset; } }
+        @keyframes popIn { 0% { transform: scale(0.5) rotate(-10deg); opacity: 0; } 80% { transform: scale(1.1) rotate(5deg); } 100% { transform: scale(1) rotate(0); opacity: 1; } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }
+
+        .shake {
+            animation: shake 0.4s ease;
+            background: rgba(251, 113, 133, 0.3) !important;
+            border-color: var(--error) !important;
+        }
+
+        /* 元素颜色分组 */
+        .color-group-1 { background: linear-gradient(135deg, #f87171, #ef4444); } 
+        .color-group-2 { background: linear-gradient(135deg, #fbbf24, #f59e0b); } 
+        .color-group-3 { background: linear-gradient(135deg, #34d399, #10b981); } 
+        .color-group-4 { background: linear-gradient(135deg, #60a5fa, #3b82f6); } 
+        .color-group-5 { background: linear-gradient(135deg, #a78bfa, #8b5cf6); } 
+
+    </style>
+</head>
+<body>
+
+    <canvas id="starfield"></canvas>
+
+    <div id="screen-home" class="screen active">
+        <h1>✨ 元素星空 ✨</h1>
+        <p class="subtitle">聆听星辰低语，找回迷失的化学元素</p>
+        
+        <input type="text" id="username-input" class="input-field" placeholder="输入指挥官代号" />
+        
+        <button class="btn" onclick="startGame('casual')">🌌 漫游模式 (无尽探索)</button>
+        <button class="btn" onclick="startCompete()">⏳ 跃迁模式 (90秒挑战)</button>
+        <button class="btn" onclick="fetchLeaderboard()">🏆 星空排行榜</button>
+    </div>
+
+    <div id="screen-leaderboard" class="screen">
+        <h1>🏆 星空排行榜</h1>
+        <div id="leaderboard-content" style="color: white; font-size: 1.1rem; margin-bottom: 20px; text-align: left; line-height: 1.8; min-height: 200px; width: 100%; max-width: 400px;">
+            加载中...
+        </div>
+        <button class="btn btn-back" onclick="showScreen('screen-home')">返回基地</button>
+    </div>
+
+    <div id="screen-game" class="screen">
+        <div class="status-bar">
+            <span id="score-display">星辰: 0 / 20</span>
+            <span id="time-display" style="display: none; color: var(--accent);">时间: 90s</span>
+            <button class="btn btn-back" onclick="showScreen('screen-home')">返回</button>
+        </div>
+
+        <div class="prompt-box">
+            <h2>指引这颗星辰回到它的坐标：</h2>
+            <div id="current-element" class="element-badge">H 氢</div>
+        </div>
+
+        <div class="table-wrapper">
+            <div class="periodic-table" id="table-container"></div>
+        </div>
+    </div>
+
+    <div id="screen-result" class="screen">
+        <h1 id="result-title">🎉 宇宙圆满 🎉</h1>
+        <p class="subtitle" id="result-desc">你找回了所有的元素星辰！</p>
+        <button class="btn" onclick="showScreen('screen-home')">再次启程</button>
+        <button class="btn" onclick="fetchLeaderboard()">查看排行榜</button>
+    </div>
+
+    <div id="toast"></div>
+
+    <script>
+        // --- 1. 数据配置 ---
+        const elementData = [
+            { num: 1, sym: 'H', name: '氢', row: 1, col: 1, group: 3, fact: '宇宙中最轻盈的舞者，一切星辰的起点。' },
+            { num: 2, sym: 'He', name: '氦', row: 1, col: 18, group: 4, fact: '让气球挣脱重力，也让太阳恒久发光。' },
+            { num: 3, sym: 'Li', name: '锂', row: 2, col: 1, group: 1, fact: '最轻的金属，藏在电池里默默驱动世界。' },
+            { num: 4, sym: 'Be', name: '铍', row: 2, col: 2, group: 2, fact: '甘甜却带有剧毒的矛盾体，航天器的坚甲。' },
+            { num: 5, sym: 'B', name: '硼', row: 2, col: 13, group: 5, fact: '坚韧的骨骼，能让玻璃经受住冰火考验。' },
+            { num: 6, sym: 'C', name: '碳', row: 2, col: 14, group: 3, fact: '既是柔软的铅笔芯，也是璀璨的钻石。' },
+            { num: 7, sym: 'N', name: '氮', row: 2, col: 15, group: 3, fact: '空气中低调的多数派，生命不可或缺的基石。' },
+            { num: 8, sym: 'O', name: '氧', row: 2, col: 16, group: 3, fact: '每一口呼吸的馈赠，燃烧与生命的催化剂。' },
+            { num: 9, sym: 'F', name: '氟', row: 2, col: 17, group: 3, fact: '活泼好动的破坏王，却能保护你的牙齿。' },
+            { num: 10, sym: 'Ne', name: '氖', row: 2, col: 18, group: 4, fact: '通电后，它点亮了整条街的红霓虹灯。' },
+            { num: 11, sym: 'Na', name: '钠', row: 3, col: 1, group: 1, fact: '遇水即燃的暴脾气，化作食盐却滋味万千。' },
+            { num: 12, sym: 'Mg', name: '镁', row: 3, col: 2, group: 2, fact: '燃烧时发出耀眼的白光，老相机的闪光灯。' },
+            { num: 13, sym: 'Al', name: '铝', row: 3, col: 13, group: 5, fact: '从前比黄金还贵，如今化作易拉罐陪伴你。' },
+            { num: 14, sym: 'Si', name: '硅', row: 3, col: 14, group: 5, fact: '沙子里的沉睡者，苏醒后构建了整个信息时代。' },
+            { num: 15, sym: 'P', name: '磷', row: 3, col: 15, group: 3, fact: '黑暗中发出幽幽冷光，点燃火柴的魔法。' },
+            { num: 16, sym: 'S', name: '硫', row: 3, col: 16, group: 3, fact: '火山口的淡黄结晶，热烈与毁灭的象征。' },
+            { num: 17, sym: 'Cl', name: '氯', row: 3, col: 17, group: 3, fact: '刺鼻的黄绿气体，净化了泳池的一池清水。' },
+            { num: 18, sym: 'Ar', name: '氩', row: 3, col: 18, group: 4, fact: '慵懒的隐士，在白炽灯泡里默默守护灯丝。' },
+            { num: 19, sym: 'K', name: '钾', row: 4, col: 1, group: 1, fact: '植物繁茂的养料，让你心跳稳健的秘密。' },
+            { num: 20, sym: 'Ca', name: '钙', row: 4, col: 2, group: 2, fact: '白垩纪的记忆，支撑起你坚硬的骨骼与牙齿。' }
+        ];
+
+        // --- 2. 纯代码音效合成 ---
+        let audioCtx;
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function playSuccessSound() {
+            if(!audioCtx) return;
+            const t = audioCtx.currentTime;
+            [880, 1108.73].forEach((freq, index) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, t + index * 0.05);
+                gain.gain.setValueAtTime(0, t);
+                gain.gain.linearRampToValueAtTime(0.1, t + 0.05 + index * 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 1);
+                osc.start(t + index * 0.05);
+                osc.stop(t + 1);
+            });
+        }
+
+        function playErrorSound() {
+            if(!audioCtx) return;
+            const t = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(150, t);
+            osc.frequency.exponentialRampToValueAtTime(100, t + 0.3);
+            gain.gain.setValueAtTime(0.2, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+            osc.start(t);
+            osc.stop(t + 0.3);
+        }
+
+        // --- 3. 动态星空背景 ---
+        const canvas = document.getElementById('starfield');
+        const ctx = canvas.getContext('2d');
+        let stars = [];
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function initStars() {
+            stars = [];
+            for(let i=0; i<150; i++) {
+                stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    r: Math.random() * 1.5,
+                    speed: Math.random() * 0.2 + 0.1,
+                    alpha: Math.random(),
+                    alphaDir: Math.random() > 0.5 ? 1 : -1
+                });
+            }
+        }
+
+        function drawStars() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#fff';
+            stars.forEach(star => {
+                ctx.globalAlpha = star.alpha;
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2);
+                ctx.fill();
+                star.y -= star.speed;
+                if(star.y < 0) star.y = canvas.height;
+                star.alpha += 0.01 * star.alphaDir;
+                if(star.alpha <= 0.1 || star.alpha >= 0.8) star.alphaDir *= -1;
+            });
+            requestAnimationFrame(drawStars);
+        }
+        initStars();
+        drawStars();
+
+        // --- 4. 游戏核心逻辑 ---
+        let currentMode = 'casual';
+        let currentUsername = "匿名指挥官";
+        let queue = [];
+        let currentTarget = null;
+        let score = 0;
+        let timeLeft = 90;
+        let timer = null;
+        let toastTimeout = null;
+
+        const tableContainer = document.getElementById('table-container');
+        const currentElementUI = document.getElementById('current-element');
+        const scoreDisplay = document.getElementById('score-display');
+        const timeDisplay = document.getElementById('time-display');
+        const toast = document.getElementById('toast');
+
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+            if(timer && screenId !== 'screen-game') clearInterval(timer);
+            toast.classList.remove('show'); 
+        }
+
+        function showToast(text) {
+            toast.innerText = text;
+            toast.classList.add('show');
+            if(toastTimeout) clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function initTable() {
+            tableContainer.innerHTML = '';
+            for (let r = 1; r <= 4; r++) {
+                for (let c = 1; c <= 18; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell hidden';
+                    
+                    const el = elementData.find(e => e.row === r && e.col === c);
+                    if (el) {
+                        cell.classList.remove('hidden');
+                        cell.classList.add('empty-slot');
+                        cell.dataset.num = el.num;
+                        cell.onclick = () => handleCellClick(cell, el);
+                    }
+                    tableContainer.appendChild(cell);
+                }
+            }
+        }
+
+        function startCompete() {
+            const input = document.getElementById('username-input').value.trim();
+            if (!input) {
+                showToast("⚠️ 请先输入指挥官代号！");
+                return;
+            }
+            currentUsername = input;
+            startGame('compete');
+        }
+
+        function startGame(mode) {
+            initAudio(); 
+            currentMode = mode;
+            score = 0;
+            queue = [...elementData].sort(() => Math.random() - 0.5);
+            initTable();
+            updateScore();
+            
+            if (mode === 'compete') {
+                timeLeft = 90; // 设置为90秒
+                timeDisplay.style.display = 'inline';
+                timeDisplay.innerText = `时间: ${timeLeft}s`;
+                timer = setInterval(() => {
+                    timeLeft--;
+                    timeDisplay.innerText = `时间: ${timeLeft}s`;
+                    if (timeLeft <= 0) endGame(false);
+                }, 1000);
+            } else {
+                timeDisplay.style.display = 'none';
+            }
+
+            showScreen('screen-game');
+            nextTurn();
+        }
+
+        function nextTurn() {
+            if (queue.length === 0) {
+                setTimeout(() => endGame(true), 800);
+                return;
+            }
+            currentTarget = queue.pop();
+            currentElementUI.innerText = `${currentTarget.sym} ${currentTarget.name}`;
+        }
+
+        function handleCellClick(cell, el) {
+            if (el.num === currentTarget.num) {
+                playSuccessSound();
+                cell.classList.remove('empty-slot');
+                cell.classList.add('filled');
+                cell.classList.add(`color-group-${el.group}`);
+                cell.innerHTML = `<div>${el.sym}</div><small>${el.name}</small>`;
+                cell.onclick = null;
+                
+                showToast(`✨ ${el.name}：${el.fact}`);
+                
+                score++;
+                updateScore();
+                nextTurn();
+            } else {
+                playErrorSound();
+                cell.classList.add('shake');
+                setTimeout(() => cell.classList.remove('shake'), 400);
+                
+                if (currentMode === 'compete') {
+                    timeLeft = Math.max(0, timeLeft - 1); // 错误扣1秒
+                    timeDisplay.innerText = `时间: ${timeLeft}s`;
+                    timeDisplay.style.color = 'var(--error)';
+                    setTimeout(() => timeDisplay.style.color = 'var(--accent)', 300);
+                }
+            }
+        }
+
+        function updateScore() {
+            scoreDisplay.innerText = `星辰: ${score} / 20`;
+        }
+
+        function endGame(isWin) {
+            clearInterval(timer);
+            showScreen('screen-result');
+            const title = document.getElementById('result-title');
+            const desc = document.getElementById('result-desc');
+            
+            if (isWin) {
+                title.innerText = "🎉 宇宙圆满 🎉";
+                if (currentMode === 'compete') {
+                    const timeUsed = 90 - timeLeft;
+                    desc.innerText = `太棒了！指挥官 ${currentUsername}，你用时 ${timeUsed} 秒让所有星辰归位！`;
+                    submitScore(currentUsername, timeUsed); 
+                } else {
+                    desc.innerText = "恭喜你完成了漫游，找回了所有迷失的元素。";
+                }
+            } else {
+                title.innerText = "⏳ 跃迁中断 ⏳";
+                desc.innerText = `很遗憾，时间流逝殆尽。你成功找回了 ${score} 颗星辰。`;
+            }
+        }
+
+        // --- 5. 后端 API 通信 ---
+        async function submitScore(username, timeUsed) {
+            try {
+                await fetch('/.netlify/functions/saveScore', {
+                    method: 'POST',
+                    body: JSON.stringify({ username, time_used: timeUsed })
+                });
+                showToast("✨ 成绩已上传至星空数据库！");
+            } catch (e) {
+                console.error("提交失败", e);
+            }
+        }
+
+        async function fetchLeaderboard() {
+            showScreen('screen-leaderboard');
+            const content = document.getElementById('leaderboard-content');
+            content.innerHTML = "连接星空数据库中...";
+            try {
+                const res = await fetch('/.netlify/functions/getLeaderboard');
+                const data = await res.json();
+                
+                if (data.length === 0) {
+                    content.innerHTML = "暂无记录，成为第一个挑战者吧！";
+                    return;
+                }
+
+                let html = "<ol>";
+                data.forEach((row) => {
+                    html += `<li><b>${row.username}</b> - 耗时: <span style="color: var(--success);">${row.time_used}s</span></li>`;
+                });
+                html += "</ol>";
+                content.innerHTML = html;
+            } catch (e) {
+                content.innerHTML = "获取星空记录失败，请检查基地网络。";
+            }
+        }
+    </script>
+</body>
+</html>
