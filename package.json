@@ -1,6 +1,7 @@
 {
   "name": "element-star",
   "version": "1.0.0",
+  "type": "module",
   "dependencies": {
     "@netlify/neon": "latest"
   }
